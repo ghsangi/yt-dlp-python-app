@@ -1,0 +1,154 @@
+---
+
+### File 2: `templates/index.html`
+Save this inside your `/templates` subdirectory (`/var/www/yt-downloader/templates/index.html`).
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ settings.logo_text }} - Free Online YouTube Downloader Converter</title>
+    <script src="https://jsdelivr.net"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; }
+        .adsense-placeholder {
+            background: repeating-linear-gradient(45deg, #1e293b, #1e293b 10px, #111827 10px, #111827 20px);
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen items-center p-4">
+
+    <!-- AD SLOT TOP -->
+    <div class="w-full max-w-4xl mx-auto my-4">
+        <div class="adsense-placeholder w-full h-24 rounded-xl border border-slate-800 flex items-center justify-center text-xs font-mono text-slate-500 select-none">
+            [ADSENSE LEADERBOARD PLACEHOLDER - 728x90]
+        </div>
+    </div>
+
+    <!-- Core Grid Framework layout -->
+    <div class="w-full max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6 items-start mt-4">
+        
+        <div class="w-full lg:col-span-3 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl p-6 sm:p-8">
+            <h1 class="text-3xl font-extrabold text-center mb-2 tracking-tight text-white select-none">
+                <span class="bg-gradient-to-r {% if settings.theme_color == 'blue' %}from-blue-500 to-cyan-500{% elif settings.theme_color == 'emerald' %}from-emerald-500 to-teal-500{% else %}from-red-500 to-amber-500{% endif %} bg-clip-text text-transparent">
+                    {{ settings.logo_text }}
+                </span>
+            </h1>
+            <p class="text-slate-400 text-center text-sm mb-8">Download high quality media conversions fast and completely free.</p>
+
+            <form id="download-form" class="space-y-4">
+                <input type="url" id="video-url" placeholder="Paste target video URL here... (e.g., https://youtube.com...)" required class="w-full px-4 py-3.5 bg-slate-950 border border-slate-700 rounded-xl focus:outline-none focus:ring-1 text-slate-100 text-sm placeholder-slate-500">
+                <button type="submit" id="submit-btn" class="w-full cursor-pointer flex items-center justify-center gap-2 text-white font-semibold py-3 px-4 rounded-xl shadow-lg transition-all transform active:scale-95 text-sm {% if settings.theme_color == 'blue' %}bg-blue-600 hover:bg-blue-500{% elif settings.theme_color == 'emerald' %}bg-emerald-600 hover:bg-emerald-500{% else %}bg-red-600 hover:bg-red-500{% endif %}">
+                    <span id="btn-text">Fetch Formats</span>
+                </button>
+            </form>
+
+            <div id="status-message" class="hidden mt-6 p-4 rounded-xl text-sm border text-center font-medium"></div>
+
+            <div id="result-container" class="hidden mt-8 space-y-6 pt-6 border-t border-slate-800">
+                <div class="flex flex-col sm:flex-row gap-4 items-center">
+                    <img id="video-thumb" src="" alt="Thumbnail" class="w-full sm:w-48 aspect-video object-cover rounded-lg border border-slate-800 shadow">
+                    <div class="flex-1 text-center sm:text-left">
+                        <h3 id="video-title" class="font-bold text-slate-100 line-clamp-2 text-base"></h3>
+                    </div>
+                </div>
+                <div id="formats-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <!-- AD SLOT SIDEBAR -->
+        <div class="w-full lg:col-span-1 bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 select-none">
+            <span class="text-[10px] font-bold text-slate-500 uppercase block text-center tracking-wider">Sponsored Link</span>
+            <div class="adsense-placeholder w-full h-[400px] rounded-xl border border-slate-800 flex items-center justify-center text-xs font-mono text-slate-500">
+                [ADSENSE SKYSCRAPER - 300x600]
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const themeColor = "{{ settings.theme_color }}";
+        const form = document.getElementById('download-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const statusMessage = document.getElementById('status-message');
+        const resultContainer = document.getElementById('result-container');
+        const formatsList = document.getElementById('formats-list');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            document.getElementById('btn-text').innerText = "Analyzing Video URL...";
+            submitBtn.disabled = true;
+            statusMessage.classList.add('hidden');
+            resultContainer.classList.add('hidden');
+
+            const formData = new FormData();
+            formData.append('url', document.getElementById('video-url').value);
+
+            try {
+                const response = await fetch('/fetch-info', { method: 'POST', body: formData });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || 'Network request parsing failure.');
+
+                document.getElementById('video-title').innerText = data.title;
+                document.getElementById('video-thumb').src = data.thumbnail;
+                formatsList.innerHTML = '';
+
+                data.formats.forEach(f => {
+                    const card = document.createElement('div');
+                    card.className = "flex items-center justify-between p-3 bg-slate-950 border border-slate-800 rounded-xl text-sm";
+                    
+                    let activeBtnClass = "bg-red-950/40 text-red-400 border-red-900/50 hover:bg-red-600";
+                    if(themeColor === 'blue') activeBtnClass = "bg-blue-950/40 text-blue-400 border-blue-900/50 hover:bg-blue-600";
+                    if(themeColor === 'emerald') activeBtnClass = "bg-emerald-950/40 text-emerald-400 border-emerald-900/50 hover:bg-emerald-600";
+
+                    card.innerHTML = `
+                        <span class="font-medium text-slate-300">${f.quality} (.${f.ext})</span>
+                        <button onclick="triggerDownload('${encodeURIComponent(f.stream_url)}', '${encodeURIComponent(data.safe_title)}', '${f.ext}', '${encodeURIComponent(f.quality)}')" 
+                                class="cursor-pointer font-semibold text-xs border px-3 py-1.5 rounded-md hover:text-white transition-all ${activeBtnClass}">
+                            Download
+                        </button>
+                    `;
+                    formatsList.appendChild(card);
+                });
+                resultContainer.classList.remove('hidden');
+            } catch (err) {
+                statusMessage.className = "mt-6 p-4 rounded-xl text-sm border text-center bg-red-950/30 border-red-900/50 text-red-400";
+                statusMessage.innerText = err.message;
+                statusMessage.classList.remove('hidden');
+            } finally {
+                document.getElementById('btn-text').innerText = "Fetch Formats";
+                submitBtn.disabled = false;
+            }
+        });
+
+        async function triggerDownload(streamUrl, safeTitle, ext, quality) {
+            statusMessage.className = "mt-6 p-4 rounded-xl text-sm border text-center bg-blue-950/30 border-blue-900/50 text-blue-400 animate-pulse";
+            statusMessage.innerText = "Buffering file pipeline chunks through tunnel configurations...";
+            statusMessage.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`/download?url=${streamUrl}&filename=${safeTitle}&ext=${ext}&quality=${quality}`);
+                if (!response.ok) throw new Error("Download action threshold rate-limited or stream cut by provider.");
+
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `${decodeURIComponent(safeTitle)}.${ext}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(downloadUrl);
+                a.remove();
+
+                statusMessage.className = "mt-6 p-4 rounded-xl text-sm border text-center bg-emerald-950/30 border-emerald-900/50 text-emerald-400";
+                statusMessage.innerText = "Asset transmission completed fully!";
+                setTimeout(() => statusMessage.classList.add('hidden'), 5000);
+            } catch (err) {
+                statusMessage.className = "mt-6 p-4 rounded-xl text-sm border text-center bg-red-950/30 border-red-900/50 text-red-400";
+                statusMessage.innerText = err.message;
+            }
+        }
+    </script>
+</body>
+</html>
