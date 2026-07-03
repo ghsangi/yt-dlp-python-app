@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamDrop Control Center - Admin Panel</title>
+    <script src="https://jsdelivr.net"></script>
+    <style>body { background-color: #0f172a; color: #f8fafc; }</style>
+</head>
+<body class="p-6 md:p-12">
+
+    <div class="max-w-6xl mx-auto space-y-8">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-6 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-100">Control Panel</h1>
+                <p class="text-sm text-slate-400">Manage site settings, layout styling overrides, and proxy tracking metrics.</p>
+            </div>
+            <a href="/" class="text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl border border-slate-700">Back to frontpage</a>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Global Config Panel Form Component -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+                <h2 class="text-sm font-bold text-slate-200 border-b border-slate-800 pb-2">Global Settings</h2>
+                <form id="settings-form" class="space-y-4">
+                    <div>
+                        <label class="block text-xs text-slate-400 font-semibold mb-1">Logo Text Brand Name</label>
+                        <input type="text" name="logo_text" value="{{ settings.logo_text }}" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 font-semibold mb-1">Theme Accent Color</label>
+                        <select name="theme_color" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white">
+                            <option value="red" {% if settings.theme_color == 'red' %}selected{% endif %}>Crimson Red</option>
+                            <option value="blue" {% if settings.theme_color == 'blue' %}selected{% endif %}>Sky Blue</option>
+                            <option value="emerald" {% if settings.theme_color == 'emerald' %}selected{% endif %}>Emerald Green</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 font-semibold mb-1">Global Site Redirect Option URL</label>
+                        <input type="url" name="redirect_url" value="{{ settings.redirect_url }}" placeholder="https://external-url.com" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white">
+                    </div>
+                    <button type="submit" class="cursor-pointer w-full bg-blue-600 hover:bg-blue-500 font-bold py-2 rounded-lg text-xs text-white transition-all">Save Layout Settings</button>
+                </form>
+
+                <div class="pt-4 border-t border-slate-800">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wide">Tunnel Infrastructure</h3>
+                    <p class="text-[11px] text-slate-500 mt-1">Active Pipeline Connection Status Profile:</p>
+                    <span class="text-xs font-mono font-bold text-amber-500 block mt-1 truncate">
+                        {% if proxy_url %}Proxied ({{ proxy_url.split('@')[-1] }}){% else %}Direct IP Node (No Proxy Set){% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Content Blocking Node Component Layout -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+                <h2 class="text-sm font-bold text-slate-200 border-b border-slate-800 pb-2">Blacklist Vault</h2>
+                <form id="block-form" class="space-y-2">
+                    <input type="text" id="block-input" placeholder="Paste link or 11-char video ID..." required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white">
+                    <button type="submit" class="cursor-pointer w-full bg-red-600 hover:bg-red-500 font-bold py-2 rounded-lg text-xs text-white">Ban Video ID</button>
+                </form>
+                <div id="blocklist-container" class="space-y-1.5 max-h-48 overflow-y-auto text-xs"></div>
+            </div>
+
+            <!-- Dashboard Analytics Table Interaction Logging Component -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden p-6 space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <h2 class="text-sm font-bold text-slate-200">System Activity Logs</h2>
+                    <button onclick="clearLogs()" class="cursor-pointer text-[10px] text-red-400 font-bold uppercase hover:underline">Clear All</button>
+                </div>
+                <div class="text-xs text-slate-400">Total Processed Assets Counter: <span id="metric-downloads" class="font-bold text-amber-500">0</span></div>
+                <div class="overflow-y-auto max-h-64 text-[11px] space-y-2" id="logs-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('settings-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await fetch('/api/admin/update-settings', { method: 'POST', body: new FormData(e.target) });
+            if (res.ok) alert("Site properties updated successfully!");
+        });
+
+        async function fetchStats() {
+            const res = await fetch('/api/admin/stats');
+            if (!res.ok) return;
+            const data = await res.json();
+            
+            document.getElementById('metric-downloads').innerText = data.total_downloads;
+            
+            const logsBox = document.getElementById('logs-container');
+            if(data.recent_logs.length === 0) {
+                logsBox.innerHTML = `<span class="text-slate-500 italic block text-center py-4">No download activities logged.</span>`;
+            } else {
+                logsBox.innerHTML = data.recent_logs.map(l => `
+                    <div class="p-2 bg-slate-950 rounded border border-slate-800">
+                        <div class="text-slate-400 text-[10px] font-mono">${l.timestamp}</div>
+                        <div class="truncate font-semibold text-slate-200" title="${l.title}">${l.title}</div>
+                        <div class="text-slate-500 text-[10px]">${l.quality} (.${l.ext})</div>
+                    </div>
+                `).join('');
+            }
+
+            const blockBox = document.getElementById('blocklist-container');
+            if(data.blocklist.length === 0) {
+                blockBox.innerHTML = `<span class="text-slate-500 italic block text-center py-4">No active video constraints blacklisted.</span>`;
+            } else {
+                blockBox.innerHTML = data.blocklist.map(id => `
+                    <div class="flex justify-between items-center bg-slate-950 p-2 rounded border border-slate-800">
+                        <span class="font-mono text-slate-300 select-all">${id}</span>
+                        <button onclick="unblockId('${id}')" class="cursor-pointer text-[10px] text-slate-400 hover:text-red-400 font-bold uppercase transition-all">Remove</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        document.getElementById('block-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const f = new FormData();
+            f.append('url_or_id', document.getElementById('block-input').value);
+            const res = await fetch('/api/admin/block', { method: 'POST', body: f });
+            if (res.ok) { document.getElementById('block-input').value = ''; fetchStats(); }
+        });
+
+        async function unblockId(id) {
+            const f = new FormData();
+            f.append('video_id', id);
+            if((await fetch('/api/admin/unblock', { method: 'POST', body: f })).ok) fetchStats();
+        }
+
+        async function clearLogs() {
+            if(confirm("Permanently wipe historical analytic streams?") && (await fetch('/api/admin/clear-logs', {method:'POST'})).ok) fetchStats();
+        }
+
+        fetchStats();
+        setInterval(fetchStats, 12000);
+    </script>
+</body>
+</html>
